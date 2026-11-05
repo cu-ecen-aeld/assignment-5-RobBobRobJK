@@ -1,0 +1,5 @@
+config BR2_PACKAGE_LDD
+	bool "ldd"
+	depends on BR2_LINUX_KERNEL
+	help
+	  Linux Device Drivers (ldd3) misc-modules and scull kernel modules.

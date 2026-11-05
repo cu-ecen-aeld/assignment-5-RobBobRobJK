@@ -1,0 +1,74 @@
+#!/bin/sh
+# Load/unload the ldd3 scull, faulty and hello modules
+
+mode="664"
+if grep -q '^staff:' /etc/group; then
+    group="staff"
+else
+    group="wheel"
+fi
+
+scull_load()
+{
+    modprobe scull || return 1
+    major=$(awk '$2=="scull" {print $1}' /proc/devices)
+    rm -f /dev/scull[0-3] /dev/scullpipe[0-3] /dev/scullsingle /dev/sculluid /dev/scullwuid /dev/scullpriv
+    for i in 0 1 2 3; do
+        mknod /dev/scull$i c $major $i
+        mknod /dev/scullpipe$i c $major $((i + 4))
+    done
+    ln -sf scull0 /dev/scull
+    ln -sf scullpipe0 /dev/scullpipe
+    mknod /dev/scullsingle c $major 8
+    mknod /dev/sculluid c $major 9
+    mknod /dev/scullwuid c $major 10
+    mknod /dev/scullpriv c $major 11
+    chgrp $group /dev/scull[0-3] /dev/scullpipe[0-3] /dev/scullsingle /dev/sculluid /dev/scullwuid /dev/scullpriv
+    chmod $mode /dev/scull[0-3] /dev/scullpipe[0-3] /dev/scullsingle /dev/sculluid /dev/scullwuid /dev/scullpriv
+}
+
+scull_unload()
+{
+    rmmod scull || return 1
+    rm -f /dev/scull /dev/scull[0-3] /dev/scullpriv /dev/scullpipe /dev/scullpipe[0-3]
+    rm -f /dev/scullsingle /dev/sculluid /dev/scullwuid
+}
+
+faulty_load()
+{
+    modprobe faulty || return 1
+    major=$(awk '$2=="faulty" {print $1}' /proc/devices)
+    if [ -n "$major" ]; then
+        rm -f /dev/faulty
+        mknod /dev/faulty c $major 0
+        chgrp $group /dev/faulty
+        chmod $mode /dev/faulty
+    fi
+}
+
+faulty_unload()
+{
+    rmmod faulty || return 1
+    rm -f /dev/faulty
+}
+
+case "$1" in
+    start)
+        echo "Loading ldd modules: hello, scull, faulty"
+        modprobe hello
+        scull_load
+        faulty_load
+        ;;
+    stop)
+        echo "Unloading ldd modules: faulty, scull, hello"
+        faulty_unload
+        scull_unload
+        rmmod hello
+        ;;
+    *)
+        echo "Usage: $0 {start|stop}"
+        exit 1
+        ;;
+esac
+
+exit 0
